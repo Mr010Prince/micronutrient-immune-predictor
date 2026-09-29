@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+.venv/
+dist/
+data/raw/
+data/interim/
+ml/results/
+frontend/node_modules/
+frontend/dist/
+backend/__pycache__/
+backend/ml/__pycache__/
+.kilo/

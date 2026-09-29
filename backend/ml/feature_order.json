@@ -1,0 +1,18 @@
+[
+  "age",
+  "gender",
+  "race_ethnicity",
+  "income_poverty_ratio",
+  "vitamin_A",
+  "vitamin_E",
+  "vitamin_C",
+  "vitamin_D_25OH",
+  "ferritin",
+  "serum_iron",
+  "TIBC",
+  "transferrin_saturation",
+  "transferrin_receptor",
+  "RBC_folate",
+  "serum_total_folate",
+  "blood_selenium"
+]
