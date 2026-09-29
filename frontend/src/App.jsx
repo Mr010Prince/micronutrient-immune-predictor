@@ -19,6 +19,9 @@ const FEATURES = [
   "blood_selenium",
 ];
 
+const DEMO_FEATURES = ["age", "gender", "race_ethnicity", "income_poverty_ratio"];
+const BIO_FEATURES = FEATURES.filter((f) => !DEMO_FEATURES.includes(f));
+
 const LABELS = {
   age: "Age (years)",
   gender: "Gender",
@@ -69,19 +72,75 @@ const PLACEHOLDERS = {
   blood_selenium: "e.g. 120",
 };
 
+const WHY_CARDS = [
+  {
+    title: "Data-Driven",
+    desc: "Trained on real NHANES 2017-2018 clinical data",
+  },
+  {
+    title: "Explainable",
+    desc: "SHAP shows exactly which biomarkers drove each prediction",
+  },
+  {
+    title: "Fast Screening",
+    desc: "Instant risk assessment from lab values",
+  },
+];
+
 const API_URL = "http://localhost:8000/predict";
+
+const INITIAL_FORM = () => FEATURES.reduce((acc, f) => ({ ...acc, [f]: "" }), {});
+
+function FeatureInput({ f, form, handleChange }) {
+  if (f === "gender") {
+    return (
+      <select id={f} name={f} value={form[f]} onChange={handleChange} required>
+        <option value="" disabled>Select...</option>
+        {GENDER_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    );
+  }
+  if (f === "race_ethnicity") {
+    return (
+      <select id={f} name={f} value={form[f]} onChange={handleChange} required>
+        <option value="" disabled>Select...</option>
+        {RACE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <input
+      id={f}
+      name={f}
+      type="number"
+      step="any"
+      placeholder={PLACEHOLDERS[f] || ""}
+      value={form[f]}
+      onChange={handleChange}
+      required
+    />
+  );
+}
 
 export default function App() {
   const [view, setView] = useState("landing");
-  const [form, setForm] = useState(() =>
-    FEATURES.reduce((acc, f) => ({ ...acc, [f]: f === "gender" || f === "race_ethnicity" ? "" : "" }), {})
-  );
+  const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleReset = () => {
+    setForm(INITIAL_FORM());
+    setResult(null);
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
@@ -127,71 +186,108 @@ export default function App() {
 
   if (view === "landing") {
     return (
-      <div className="container">
-        <h1>Micronutrient Immune Dysfunction Predictor</h1>
-        <p style={{ marginBottom: "20px" }}>
-          Predict immune dysfunction risk from micronutrient and demographic inputs.
-        </p>
-        <button onClick={() => setView("dashboard")}>Start Prediction</button>
+      <div className="landing-wrapper">
+        <nav className="nav-bar">
+          <span className="nav-logo">Micronutrient Immune Predictor</span>
+        </nav>
+
+        <div className="hero">
+          <h1 className="hero-headline">
+            Predict Immune Dysfunction Risk From Micronutrient Data
+          </h1>
+          <p className="hero-subtext">
+            This tool uses machine learning (XGBoost) on NHANES 2017-2018 health
+            data to flag immune dysfunction risk from vitamin, mineral and
+            demographic markers, with SHAP explainability showing exactly which
+            biomarkers drove each prediction.
+          </p>
+          <button className="accent-btn" onClick={() => setView("dashboard")}>
+            Start Prediction
+          </button>
+        </div>
+
+        <div className="why-row">
+          {WHY_CARDS.map((card, i) => (
+            <div key={i} className="why-card">
+              <h3 className="why-title">{card.title}</h3>
+              <p className="why-desc">{card.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="about">
+          <h3>About this project</h3>
+          <p>
+            This is a final year Computer Engineering project at Abia State
+            University focused on predicting micronutrient deficiency-linked
+            immune dysfunction risk. The model uses XGBoost, evaluated against
+            Logistic Regression and Random Forest, with SHAP-based
+            explainability for transparent, clinically-interpretable predictions.
+          </p>
+        </div>
+
+        <footer className="footer">
+          Final Year Project — Dept. of Computer Engineering, Abia State University
+        </footer>
       </div>
     );
   }
 
   return (
-    <div className="container">
+    <div className="dashboard-wrapper">
       <button
         onClick={() => setView("landing")}
-        style={{ marginBottom: "16px", background: "transparent", border: "1px solid #4a90d9", borderRadius: "4px", padding: "6px 12px", cursor: "pointer" }}
+        className="back-btn"
       >
         Back
       </button>
 
-      <h1 style={{ marginBottom: "16px" }}>Immune Dysfunction Predictor</h1>
+      <h1 className="dashboard-title">Immune Dysfunction Predictor</h1>
+
+      <p className="input-note">
+        All values should reflect standard lab test units as shown in each field.
+      </p>
 
       <form onSubmit={handleSubmit}>
+        <h2 className="section-heading">Demographics</h2>
         <div className="form-grid">
-          {FEATURES.map((f) => (
+          {DEMO_FEATURES.map((f) => (
             <React.Fragment key={f}>
               <label htmlFor={f}>{LABELS[f]}</label>
-              {f === "gender" ? (
-                <select id={f} name={f} value={form[f]} onChange={handleChange} required>
-                  <option value="">Select...</option>
-                  {GENDER_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              ) : f === "race_ethnicity" ? (
-                <select id={f} name={f} value={form[f]} onChange={handleChange} required>
-                  <option value="">Select...</option>
-                  {RACE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id={f}
-                  name={f}
-                  type="number"
-                  step="any"
-                  placeholder={PLACEHOLDERS[f] || ""}
-                  value={form[f]}
-                  onChange={handleChange}
-                  required
-                />
-              )}
+              <FeatureInput f={f} form={form} handleChange={handleChange} />
             </React.Fragment>
           ))}
         </div>
-        <button type="submit" disabled={loading}>
-          {loading ? "Predicting..." : "Predict"}
-        </button>
+
+        <h2 className="section-heading">Biomarkers</h2>
+        <div className="form-grid">
+          {BIO_FEATURES.map((f) => (
+            <React.Fragment key={f}>
+              <label htmlFor={f}>{LABELS[f]}</label>
+              <FeatureInput f={f} form={form} handleChange={handleChange} />
+            </React.Fragment>
+          ))}
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" disabled={loading} className="accent-btn">
+            {loading ? "Predicting..." : "Predict"}
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="reset-btn"
+          >
+            Reset
+          </button>
+        </div>
       </form>
 
       {error && <p className="error">{error}</p>}
 
       {result && (
         <div className="results">
-          <h2 style={{ fontSize: "18px", marginBottom: "16px" }}>Result</h2>
+          <h2 className="result-heading">Result</h2>
 
           <p>
             <strong>Prediction: </strong>
@@ -211,7 +307,18 @@ export default function App() {
             {(result.probability * 100).toFixed(1)}%
           </p>
 
-          <h3 style={{ fontSize: "15px", marginBottom: "10px" }}>Top 5 SHAP values</h3>
+          {result.prediction === 1 ? (
+            <p className="interpretation deficient">
+              This profile shows elevated risk markers — consult a healthcare
+              provider for proper diagnosis.
+            </p>
+          ) : (
+            <p className="interpretation normal">
+              This profile shows low risk based on current inputs.
+            </p>
+          )}
+
+          <h3 className="shap-heading">Top 5 SHAP values</h3>
           {topShap.map((s) => {
             const pct = (Math.abs(s.value) / maxAbs) * 100;
             const fillClass = s.value >= 0 ? "positive" : "negative";
