@@ -15,6 +15,9 @@ from sklearn.impute import IterativeImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
 from sklearn.metrics import (
@@ -135,6 +138,15 @@ def main():
                 eval_metric="logloss", random_state=RANDOM_STATE, n_jobs=-1, verbosity=0,
             )
         ),
+        "SVC": make_pipeline(
+            SVC(kernel="rbf", probability=True, class_weight="balanced", random_state=RANDOM_STATE)
+        ),
+        "KNN": make_pipeline(
+            KNeighborsClassifier(n_neighbors=15, n_jobs=-1)
+        ),
+        "MLP": make_pipeline(
+            MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=500, random_state=RANDOM_STATE)
+        ),
     }
 
     # 10-fold stratified CV ROC-AUC on train
@@ -178,7 +190,8 @@ def main():
 
     # ROC plot
     plt.figure(figsize=(7, 6))
-    colors = {"LogisticRegression": "tab:blue", "RandomForest": "tab:green", "XGBoost": "tab:red"}
+    colors = {"LogisticRegression": "tab:blue", "RandomForest": "tab:green", "XGBoost": "tab:red",
+              "SVC": "tab:purple", "KNN": "tab:orange", "MLP": "tab:brown"}
     for name, (fpr, tpr, auc) in roc_data.items():
         plt.plot(fpr, tpr, label=f"{name} (AUC={auc:.3f})", color=colors[name])
     plt.plot([0, 1], [0, 1], "k--", lw=1)
