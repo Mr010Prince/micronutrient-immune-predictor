@@ -87,7 +87,7 @@ const WHY_CARDS = [
   },
 ];
 
-const API_URL = "http://localhost:8000/predict";
+const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:8000") + "/predict";
 
 const INITIAL_FORM = () => FEATURES.reduce((acc, f) => ({ ...acc, [f]: "" }), {});
 
