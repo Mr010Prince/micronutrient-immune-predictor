@@ -19,11 +19,23 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
+from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split, GridSearchCV
 from sklearn.metrics import (
     roc_auc_score, accuracy_score, confusion_matrix, roc_curve,
 )
 from xgboost import XGBClassifier
+
+try:
+    from skopt import BayesSearchCV
+    from skopt.space import Real, Integer, Categorical
+
+    HAS_SKOPT = True
+except ImportError:
+    HAS_SKOPT = False
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    from optuna.distributions import FloatDistribution, IntDistribution, CategoricalDistribution
+    from optuna.integration import OptunaSearchCV
 
 warnings.filterwarnings("ignore")
 
@@ -113,7 +125,7 @@ def main():
     print(f"\nTrain: {X_train.shape}, Test: {X_test.shape}")
     print(f"Train class balance: {np.bincount(y_train)} | Test: {np.bincount(y_test)}")
 
-    # Models (fixed hyperparameters)
+    # Models (hyperparameter tuning)
     def make_pipeline(clf):
         return Pipeline([
             ("imputer", IterativeImputer(random_state=RANDOM_STATE, max_iter=10)),
@@ -121,33 +133,131 @@ def main():
             ("model", clf),
         ])
 
-    models = {
-        "LogisticRegression": make_pipeline(
-            LogisticRegression(class_weight="balanced", max_iter=1000, random_state=RANDOM_STATE)
-        ),
-        "RandomForest": make_pipeline(
-            RandomForestClassifier(
-                n_estimators=500, max_depth=None, min_samples_leaf=5,
-                class_weight="balanced", random_state=RANDOM_STATE, n_jobs=-1,
+    def pl(clf):
+        return make_pipeline(clf)
+
+    tune_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+    grid_searches = {}
+
+    # --- GridSearchCV models ---
+    pipe = pl(LogisticRegression(class_weight="balanced", max_iter=1000, random_state=RANDOM_STATE))
+    grid_searches["LogisticRegression"] = (
+        pipe,
+        {
+            f"model__C": [0.01, 0.1, 1, 10, 100],
+            f"model__penalty": ["l1", "l2"],
+            f"model__solver": ["liblinear", "saga"],
+        },
+    )
+    pipe = pl(RandomForestClassifier(
+        class_weight="balanced", random_state=RANDOM_STATE, n_jobs=-1))
+    grid_searches["RandomForest"] = (
+        pipe,
+        {
+            "model__n_estimators": [200, 500],
+            "model__max_depth": [None, 10, 20],
+            "model__min_samples_leaf": [1, 5, 10],
+            "model__min_samples_split": [2, 10],
+        },
+    )
+    pipe = pl(SVC(
+        kernel="rbf", probability=True, class_weight="balanced",
+        random_state=RANDOM_STATE))
+    grid_searches["SVC"] = (
+        pipe,
+        {
+            "model__C": [0.1, 1, 10, 100],
+            "model__gamma": ["scale", "auto", 0.01, 0.1],
+        },
+    )
+    pipe = pl(KNeighborsClassifier(n_jobs=-1))
+    grid_searches["KNN"] = (
+        pipe,
+        {
+            "model__n_neighbors": [5, 10, 15, 25, 35],
+            "model__weights": ["uniform", "distance"],
+            "model__p": [1, 2],
+        },
+    )
+
+    spw = float((y_train == 0).sum() / (y_train == 1).sum())
+
+    def tune_bayes(name, clf, spaces, n_trials=40):
+        """Bayesian optimization via skopt BayesSearchCV, or optuna fallback."""
+        pipe = make_pipeline(clf)
+        if HAS_SKOPT:
+            search = BayesSearchCV(
+                pipe, spaces, n_iter=n_trials, cv=tune_cv,
+                scoring="roc_auc", n_jobs=-1, random_state=RANDOM_STATE, verbose=0,
             )
-        ),
-        "XGBoost": make_pipeline(
-            XGBClassifier(
-                n_estimators=300, learning_rate=0.05, max_depth=4,
-                subsample=0.8, colsample_bytree=0.8, scale_pos_weight=float((y_train == 0).sum() / (y_train == 1).sum()),
-                eval_metric="logloss", random_state=RANDOM_STATE, n_jobs=-1, verbosity=0,
+        else:
+            optuna_sp = {}
+            for pname, (dist, *_) in spaces.items():
+                optuna_sp[f"model__{pname}"] = dist
+            search = OptunaSearchCV(
+                pipe, optuna_sp, cv=tune_cv, scoring="roc_auc",
+                n_trials=n_trials, timeout=3600, n_jobs=-1,
+                random_state=RANDOM_STATE, verbose=0,
             )
-        ),
-        "SVC": make_pipeline(
-            SVC(kernel="rbf", probability=True, class_weight="balanced", random_state=RANDOM_STATE)
-        ),
-        "KNN": make_pipeline(
-            KNeighborsClassifier(n_neighbors=15, n_jobs=-1)
-        ),
-        "MLP": make_pipeline(
-            MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=500, random_state=RANDOM_STATE)
-        ),
+        search.fit(X_train, y_train)
+        print(f"{name} best hyperparameters (Bayesian): {search.best_params_}")
+        print(f"    tuning CV AUC: {search.best_score_:.4f}")
+        return search.best_estimator_
+
+    # XGBoost
+    xgb_spaces_optuna = {
+        "n_estimators": (IntDistribution(100, 600),),
+        "learning_rate": (FloatDistribution(0.005, 0.3, log=True),),
+        "max_depth": (IntDistribution(2, 10),),
+        "subsample": (FloatDistribution(0.5, 1.0),),
+        "colsample_bytree": (FloatDistribution(0.5, 1.0),),
+        "min_child_weight": (IntDistribution(1, 10),),
     }
+    xgb_clf = XGBClassifier(
+        scale_pos_weight=spw, eval_metric="logloss", use_label_encoder=False,
+        random_state=RANDOM_STATE, n_jobs=-1, verbosity=0,
+    )
+    models_xgb = tune_bayes("XGBoost", xgb_clf, xgb_spaces_optuna)
+
+    # MLP
+    mlp_spaces_optuna = {
+        "hidden_layer_sizes": (CategoricalDistribution(["(32,)", "(64,)", "(64, 32)", "(128, 64)", "(128, 64, 32)"]),),
+        "alpha": (FloatDistribution(1e-5, 1e-1, log=True),),
+        "learning_rate_init": (FloatDistribution(1e-4, 1e-1, log=True),),
+        "activation": (CategoricalDistribution(["relu", "tanh"]),),
+    }
+    mlp_clf = MLPClassifier(max_iter=500, random_state=RANDOM_STATE)
+    if not HAS_SKOPT:
+        mlp_pipe = make_pipeline(mlp_clf)
+        # optuna categorical must be actual tuples, decoded post-fit
+        class _MLPEstimator(mlp_clf.__class__):
+            def set_params(self, **params):
+                v = params.get("hidden_layer_sizes")
+                if isinstance(v, str):
+                    params["hidden_layer_sizes"] = tuple(int(x) for x in v.replace("(", "").replace(")", "").replace(" ", "").split(",") if x)
+                return super().set_params(**params)
+        mlp_pipe.set_params(model=_MLPEstimator(max_iter=500, random_state=RANDOM_STATE))
+        pipe = mlp_pipe
+        optuna_sp = {f"model__{k2}": dist[0] for k2, dist in mlp_spaces_optuna.items()}
+        search = OptunaSearchCV(pipe, optuna_sp, cv=tune_cv, scoring="roc_auc",
+                                n_trials=40, timeout=3600, n_jobs=-1,
+                                random_state=RANDOM_STATE, verbose=0)
+        search.fit(X_train, y_train)
+        print(f"MLP best hyperparameters (Bayesian): {search.best_params_}")
+        print(f"    tuning CV AUC: {search.best_score_:.4f}")
+        models_mlp = search.best_estimator_
+    else:
+        models_mlp = tune_bayes("MLP", mlp_clf, mlp_spaces_skopt)
+
+    # Run GridSearchCV for the four grid models
+    tuned = {"XGBoost": models_xgb, "MLP": models_mlp}
+    for name, (pipe, params) in grid_searches.items():
+        gs = GridSearchCV(pipe, params, cv=tune_cv, scoring="roc_auc", n_jobs=-1, verbose=0)
+        gs.fit(X_train, y_train)
+        print(f"{name} best hyperparameters (Grid): {gs.best_params_}")
+        print(f"    tuning CV AUC: {gs.best_score_:.4f}")
+        tuned[name] = gs.best_estimator_
+    models = tuned
 
     # 10-fold stratified CV ROC-AUC on train
     cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=RANDOM_STATE)

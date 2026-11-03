@@ -235,112 +235,143 @@ export default function App() {
 
   return (
     <div className="dashboard-wrapper">
-      <button
-        onClick={() => setView("landing")}
-        className="back-btn"
-      >
-        Back
-      </button>
+      <header className="db-header">
+        <div className="db-logo">Micronutrient Immune Predictor</div>
+        <button className="db-back" onClick={() => setView("landing")}>
+          Back to Home
+        </button>
+      </header>
 
-      <h1 className="dashboard-title">Immune Dysfunction Predictor</h1>
-
-      <p className="input-note">
-        All values should reflect standard lab test units as shown in each field.
-      </p>
-
-      <form onSubmit={handleSubmit}>
-        <h2 className="section-heading">Demographics</h2>
-        <div className="form-grid">
-          {DEMO_FEATURES.map((f) => (
-            <React.Fragment key={f}>
-              <label htmlFor={f}>{LABELS[f]}</label>
-              <FeatureInput f={f} form={form} handleChange={handleChange} />
-            </React.Fragment>
-          ))}
+      <div className="db-stats">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#3b82f6' }} />
+          <div className="stat-body">
+            <div className="stat-number">16</div>
+            <div className="stat-label">Biomarkers Tracked</div>
+            <div className="stat-caption">NHANES 2017-2018</div>
+          </div>
         </div>
-
-        <h2 className="section-heading">Biomarkers</h2>
-        <div className="form-grid">
-          {BIO_FEATURES.map((f) => (
-            <React.Fragment key={f}>
-              <label htmlFor={f}>{LABELS[f]}</label>
-              <FeatureInput f={f} form={form} handleChange={handleChange} />
-            </React.Fragment>
-          ))}
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#f59e0b' }} />
+          <div className="stat-body">
+            <div className="stat-number">6</div>
+            <div className="stat-label">ML Models Compared</div>
+            <div className="stat-caption">Grid Search & Bayesian Opt</div>
+          </div>
         </div>
-
-        <div className="form-actions">
-          <button type="submit" disabled={loading} className="accent-btn">
-            {loading ? "Predicting..." : "Predict"}
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="reset-btn"
-          >
-            Reset
-          </button>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#10b981' }} />
+          <div className="stat-body">
+            <div className="stat-number">XGBoost</div>
+            <div className="stat-label">Best Model</div>
+            <div className="stat-caption">Top Test ROC-AUC</div>
+          </div>
         </div>
-      </form>
+      </div>
+
+      <div className="db-main">
+        <main className="db-panel">
+          <h2 className="db-panel-title">Patient Biomarker Input</h2>
+          <p className="input-note">
+            All values should reflect standard lab test units as shown in each field.
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            <h3 className="section-heading">Demographics</h3>
+            <div className="db-input-grid">
+              {DEMO_FEATURES.map((f) => (
+                <div className="db-field" key={f}>
+                  <label htmlFor={f}>{LABELS[f]}</label>
+                  <FeatureInput f={f} form={form} handleChange={handleChange} />
+                </div>
+              ))}
+            </div>
+
+            <h3 className="section-heading">Biomarkers</h3>
+            <div className="db-input-grid">
+              {BIO_FEATURES.map((f) => (
+                <div className="db-field" key={f}>
+                  <label htmlFor={f}>{LABELS[f]}</label>
+                  <FeatureInput f={f} form={form} handleChange={handleChange} />
+                </div>
+              ))}
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" disabled={loading} className="accent-btn">
+                {loading ? "Predicting..." : "Predict"}
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="reset-btn"
+              >
+                Reset
+              </button>
+            </div>
+          </form>
+        </main>
+
+        {result && (
+          <aside className="db-panel db-result">
+            <h2 className="db-panel-title">Prediction Result</h2>
+            <div className="results">
+              <p>
+                <strong>Prediction: </strong>
+                <span
+                  className={
+                    result.prediction === 1
+                      ? "prediction-badge prediction-deficient"
+                      : "prediction-badge prediction-normal"
+                  }
+                >
+                  {result.prediction === 1 ? "Deficient" : "Not Deficient"}
+                </span>
+              </p>
+
+              <p className="probability">
+                <strong>Probability: </strong>
+                {(result.probability * 100).toFixed(1)}%
+              </p>
+
+              {result.prediction === 1 ? (
+                <p className="interpretation deficient">
+                  This profile shows elevated risk markers — consult a healthcare
+                  provider for proper diagnosis.
+                </p>
+              ) : (
+                <p className="interpretation normal">
+                  This profile shows low risk based on current inputs.
+                </p>
+              )}
+
+              <h3 className="shap-heading">Top 5 SHAP values</h3>
+              {topShap.map((s) => {
+                const pct = (Math.abs(s.value) / maxAbs) * 100;
+                const fillClass = s.value >= 0 ? "positive" : "negative";
+                return (
+                  <div key={s.feature} className="shap-bar">
+                    <div className="shap-bar-label">
+                      <span>{LABELS[s.feature] || s.feature}</span>
+                      <span>{s.value.toFixed(4)}</span>
+                    </div>
+                    <div className="shap-bar-track">
+                      <div
+                        className={`shap-bar-fill ${fillClass}`}
+                        style={{ width: `${pct}%` }}
+                      >
+                        {s.value.toFixed(4)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+        )}
+      </div>
 
       {error && <p className="error">{error}</p>}
-
-      {result && (
-        <div className="results">
-          <h2 className="result-heading">Result</h2>
-
-          <p>
-            <strong>Prediction: </strong>
-            <span
-              className={
-                result.prediction === 1
-                  ? "prediction-badge prediction-deficient"
-                  : "prediction-badge prediction-normal"
-              }
-            >
-              {result.prediction === 1 ? "Deficient" : "Not Deficient"}
-            </span>
-          </p>
-
-          <p className="probability">
-            <strong>Probability: </strong>
-            {(result.probability * 100).toFixed(1)}%
-          </p>
-
-          {result.prediction === 1 ? (
-            <p className="interpretation deficient">
-              This profile shows elevated risk markers — consult a healthcare
-              provider for proper diagnosis.
-            </p>
-          ) : (
-            <p className="interpretation normal">
-              This profile shows low risk based on current inputs.
-            </p>
-          )}
-
-          <h3 className="shap-heading">Top 5 SHAP values</h3>
-          {topShap.map((s) => {
-            const pct = (Math.abs(s.value) / maxAbs) * 100;
-            const fillClass = s.value >= 0 ? "positive" : "negative";
-            return (
-              <div key={s.feature} className="shap-bar">
-                <div className="shap-bar-label">
-                  <span>{LABELS[s.feature] || s.feature}</span>
-                  <span>{s.value.toFixed(4)}</span>
-                </div>
-                <div className="shap-bar-track">
-                  <div
-                    className={`shap-bar-fill ${fillClass}`}
-                    style={{ width: `${pct}%` }}
-                  >
-                    {s.value.toFixed(4)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
