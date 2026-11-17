@@ -19,6 +19,25 @@ const FEATURES = [
   "blood_selenium",
 ];
 
+const TOOLTIPS = {
+  age: "Age in years. The model was trained on adults only.",
+  gender: "Male or female, as recorded in the NHANES survey.",
+  race_ethnicity: "Select the group that best describes the person.",
+  income_poverty_ratio: "Household income divided by the federal poverty line for the household size. 1.0 = at the poverty line. 3.5 = 3.5 times the line. Enter 5 if the value is 5 or higher.",
+  vitamin_A: "Serum vitamin A (retinol). Deficient: under 20 µg/dL. Marginal: 20 to under 30 µg/dL. Adequate: 30 µg/dL and above.",
+  vitamin_E: "Serum vitamin E (alpha-tocopherol). Deficient: under 517 µg/dL (about 12 µmol/L). Low: 517 to under 1292 µg/dL (about 12 to 30 µmol/L). Adequate: 1292 µg/dL and above (about 30 µmol/L and above).",
+  vitamin_C: "Serum vitamin C. Deficient: under 0.2 mg/dL. Low: 0.2 to under 0.4 mg/dL. Adequate: 0.4 mg/dL and above.",
+  vitamin_D_25OH: "25-hydroxyvitamin D in nmol/L, as measured by NHANES. Deficient: under 50 nmol/L (under 20 ng/mL). Insufficient: 50 to under 75 nmol/L (20 to under 30 ng/mL). Sufficient: 75 nmol/L and above (30 ng/mL and above).",
+  ferritin: "Low: under 15 ng/mL. Normal: 15 to under 300 ng/mL. High: 300 ng/mL and above. High values can reflect inflammation or iron overload.",
+  serum_iron: "Low: under 60 µg/dL. Normal: 60 to 150 µg/dL. High: over 150 µg/dL. Ranges vary by laboratory.",
+  TIBC: "Low: under 250 µg/dL. Normal: 250 to 450 µg/dL. High: over 450 µg/dL.",
+  transferrin_saturation: "Low: under 16%. Borderline: 16 to under 20%. Normal: 20 to 50%. High: over 50%.",
+  transferrin_receptor: "Soluble transferrin receptor. Normal: 8.3 mg/L or less. High: over 8.3 mg/L.",
+  RBC_folate: "Red blood cell folate. Low: under 305 nmol/L. Normal: 305 nmol/L and above.",
+  serum_total_folate: "Serum folate. Low: under 3 ng/mL. Normal: 3 ng/mL and above.",
+  blood_selenium: "Whole blood selenium in µg/L, as measured by NHANES. No clinical band is shown because a verified whole-blood cut-off was not available.",
+};
+
 const DEMO_FEATURES = ["age", "gender", "race_ethnicity", "income_poverty_ratio"];
 const BIO_FEATURES = FEATURES.filter((f) => !DEMO_FEATURES.includes(f));
 
@@ -28,9 +47,9 @@ const LABELS = {
   race_ethnicity: "Race/Ethnicity",
   income_poverty_ratio: "Income Poverty Ratio",
   vitamin_A: "Vitamin A (µg/dL)",
-  vitamin_E: "Vitamin E (mg/dL)",
+  vitamin_E: "Vitamin E (µg/dL)",
   vitamin_C: "Vitamin C (mg/dL)",
-  vitamin_D_25OH: "Vitamin D 25-OH (ng/mL)",
+  vitamin_D_25OH: "Vitamin D 25-OH (nmol/L)",
   ferritin: "Ferritin (ng/mL)",
   serum_iron: "Serum Iron (µg/dL)",
   TIBC: "Total Iron Binding Capacity (µg/dL)",
@@ -48,20 +67,20 @@ const GENDER_OPTIONS = [
 
 const RACE_OPTIONS = [
   { value: 1, label: "Mexican American" },
-  { value: 2, label: "Other Hispanic" },
-  { value: 3, label: "Non-Hispanic White" },
-  { value: 4, label: "Non-Hispanic Black" },
-  { value: 6, label: "Non-Hispanic Asian" },
-  { value: 7, label: "Other/Multi-Racial" },
+  { value: 2, label: "Hispanic" },
+  { value: 3, label: "White" },
+  { value: 4, label: "Black" },
+  { value: 6, label: "Asian" },
+  { value: 7, label: "Mixed" },
 ];
 
 const PLACEHOLDERS = {
   age: "e.g. 35",
   income_poverty_ratio: "e.g. 3.5",
   vitamin_A: "e.g. 30",
-  vitamin_E: "e.g. 12",
+  vitamin_E: "e.g. 1200",
   vitamin_C: "e.g. 55",
-  vitamin_D_25OH: "e.g. 30",
+  vitamin_D_25OH: "e.g. 70",
   ferritin: "e.g. 80",
   serum_iron: "e.g. 17",
   TIBC: "e.g. 320",
@@ -281,7 +300,7 @@ export default function App() {
             <div className="db-input-grid">
               {DEMO_FEATURES.map((f) => (
                 <div className="db-field" key={f}>
-                  <label htmlFor={f}>{LABELS[f]}</label>
+                  <label htmlFor={f} title={TOOLTIPS[f]}>{LABELS[f]}</label>
                   <FeatureInput f={f} form={form} handleChange={handleChange} />
                 </div>
               ))}
@@ -291,7 +310,7 @@ export default function App() {
             <div className="db-input-grid">
               {BIO_FEATURES.map((f) => (
                 <div className="db-field" key={f}>
-                  <label htmlFor={f}>{LABELS[f]}</label>
+                  <label htmlFor={f} title={TOOLTIPS[f]}>{LABELS[f]}</label>
                   <FeatureInput f={f} form={form} handleChange={handleChange} />
                 </div>
               ))}
